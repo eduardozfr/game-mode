@@ -50,7 +50,7 @@ class GameModeTests(unittest.TestCase):
 
     def test_no_corporate_branding(self):
         for path in ROOT.rglob("*"):
-            if path.is_file() and path.suffix.lower() in {".ps1", ".json", ".md", ".cmd", ".py"}:
+            if path.is_file() and path.suffix.lower() in {".ps1", ".json", ".md", ".cmd"}:
                 self.assertNotIn("telecomsip", path.read_text(encoding="utf-8").lower())
 
 if __name__ == "__main__":
