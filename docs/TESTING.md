@@ -1,25 +1,17 @@
-# Testes
+# Testes e homologação
 
-## Automatizados
+## Estruturais
 
-No Windows, rode `VERIFICAR.cmd` para validar a sintaxe dos arquivos PowerShell e JSON.
+Execute `VERIFICAR.cmd` em Windows PowerShell 5.1. O comando confere a análise sintática PowerShell e a validade dos JSON.
 
-Em uma maquina com Python 3:
+## Funcionais — ainda pendentes
 
-```bash
-python -m unittest discover -s tests -v
-```
+1. Instalar, confirmar tarefa de usuário e iniciar monitor sem janela.
+2. Abrir CS2, RDR2 e MSFS 2024, separadamente, verificando logs de detecção.
+3. Conferir que nenhum aplicativo nem serviço é encerrado.
+4. Testar mudança e restauração das preferências e do plano de energia.
+5. Simular interrupção do monitor e verificar recuperação pelo snapshot.
+6. Testar restauração manual e desinstalação.
+7. Medir FPS médio, 1% low e frametime por teste A/B equivalente; não inferir ganho apenas por memória livre.
 
-As checagens estruturais nao substituem testes funcionais no Windows.
-
-## Checklist manual (pendente)
-
-1. Instalar como administrador e confirmar tarefa no Agendador.
-2. Abrir/fechar CS2 e confirmar prioridade, Game Mode, plano e restauracao.
-3. Repetir com RDR2 e Flight Simulator 2024.
-4. Abrir os launchers, controle Logitech, audio e servicos online.
-5. Testar `RESTAURAR.cmd`, `REATIVAR.cmd`, `DESINSTALAR.cmd`.
-6. Simular parada brusca do monitor, reabrir e confirmar recuperacao de estado.
-7. Medir FPS, 1% low e frametimes com as mesmas configuracoes e cenas, antes/depois.
-
-**Estado:** validacao estatica disponivel; nao houve homologacao ponta a ponta no Windows.
+O GitHub Actions não foi tratado como validação funcional: os runners não iniciaram nas tentativas anteriores.

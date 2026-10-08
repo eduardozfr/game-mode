@@ -1,11 +1,12 @@
-# Dados particulares ficam fora do repositorio publico.
+# Dados de execução e diagnóstico devem permanecer locais
 data/
+reports/
 *.log
 *.csv
 *.zip
-state.json
-*.signal
 *.tmp
+state.json
+stop.signal
 __pycache__/
 .pytest_cache/
 .DS_Store

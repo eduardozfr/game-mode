@@ -1,28 +1,12 @@
 {
   "id": "msfs2024",
-  "displayName": "Microsoft Flight Simulator 2024",
+  "name": "Microsoft Flight Simulator 2024",
   "processName": "FlightSimulator2024",
+  "notes": "Preserva Xbox/Microsoft Store, streaming, navegadores para cartas e utilitários externos.",
   "enabled": true,
-  "stopServices": [
-    "Spooler"
-  ],
-  "stopWSL": false,
-  "closeApps": [
-    {
-      "name": "cursor",
-      "mode": "graceful"
-    },
-    {
-      "name": "node",
-      "mode": "force"
-    },
-    {
-      "name": "spotify",
-      "mode": "force"
-    },
-    {
-      "name": "widgets",
-      "mode": "force"
-    }
-  ]
+  "policy": {
+    "unknownProcesses": "preserve",
+    "interactiveProcesses": "preserve",
+    "externalGameHelpers": "preserve"
+  }
 }

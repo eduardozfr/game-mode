@@ -1,57 +1,56 @@
-# Personal Game Mode — V7
+# Game Mode
 
-Otimizador **pessoal, modular e reversivel** para Windows 11, implementado em PowerShell 5.1. Detecta jogos pelo processo, ativa regras de limpeza especificas e restaura energia, Registro e servicos ao terminar. **Nao promete mais FPS**: cada ganho precisa ser validado em teste A/B.
+**Versão 0.1.0 · experimental · Windows 11 · PowerShell 5.1**
 
-## Perfis iniciais
+Otimizador pessoal e modular para Windows. Detecta um jogo em execução, examina os processos presentes **naquela sessão**, aplica somente ajustes de desempenho reversíveis e restaura o estado anterior quando o jogo termina.
 
-| Jogo | Executavel observado | Perfil |
-| --- | --- | --- |
-| Counter-Strike 2 | `cs2.exe` | `profiles/cs2.json` |
-| Red Dead Redemption 2 | `RDR2.exe` | `profiles/rdr2.json` |
-| Microsoft Flight Simulator 2024 | `FlightSimulator2024.exe` | `profiles/msfs2024.json` |
+> Este projeto está em desenvolvimento. A versão inicial **não encerra programas ou serviços automaticamente**, pois consumo de recursos, ausência de janela e ociosidade não provam que um processo pode ser interrompido sem danos. O scanner cria candidatos para análise. Não há promessa de ganho de FPS.
 
-## Uso rapido
+## Jogos reconhecidos
 
-1. **Restaure/desative scripts antigos V5/V6**, caso ainda estejam ativos.
-2. Salve documentos e atividades em andamento: perfis podem fechar aplicativos e parar o WSL.
-3. Extraia este projeto numa pasta normal no Windows 11.
-4. Execute **`INSTALAR.cmd`** e autorize a elevacao de administrador. A instalacao ocorre em `%ProgramFiles%\PersonalGameModeV7`, pasta protegida contra alteracoes sem administrador.
-5. A V7 comeca a monitorar imediatamente e sera carregada automaticamente no proximo logon. Abra um jogo normalmente.
-6. Execute **`STATUS.cmd`** para inspecionar perfil, agendamento e ultimos eventos.
-7. **`RESTAURAR.cmd`** para interromper o monitor e restaurar configuracoes sem reiniciar. `REATIVAR.cmd` para retomar.
-8. **`DESINSTALAR.cmd`** remove a tarefa e restaura as configuracoes, mantendo arquivos e logs para conferencia.
+| Jogo | Processo monitorado |
+| --- | --- |
+| Counter-Strike 2 | `cs2.exe` |
+| Red Dead Redemption 2 | `RDR2.exe` |
+| Microsoft Flight Simulator 2024 | `FlightSimulator2024.exe` |
 
-**Importante:** o monitor fecha programas **uma vez** quando detecta o processo do jogo (nao fica encerrando apps continuamente). Apps fechados nao sao reabertos automaticamente. O encerramento de `node.exe` e do WSL pode interromper ferramentas de trabalho e sessoes abertas. Somente use o modo automatico se aceitar essa consequencia.
+## Instalação
 
-## O que muda e o que NAO muda
+1. Feche os modos anteriores de otimização manual, se estiverem ativos.
+2. Baixe ou clone este repositório para uma pasta no Windows 11.
+3. Execute `INSTALAR.cmd` como **usuário normal** (não precisa ser administrador).
+4. Abra normalmente um dos jogos reconhecidos.
+5. Execute `STATUS.cmd` para conferir o perfil e o estado do monitor.
+6. Para parar o monitor e restaurar as alterações temporárias, use `RESTAURAR.cmd`.
+7. Para voltar a detectar jogos, use `REATIVAR.cmd`. Para remover a automação, `DESINSTALAR.cmd`.
 
-**Reversivel e temporario:** Game Mode (preferencia existente em HKCU), Game DVR, plano Alto Desempenho se disponivel, prioridade `AboveNormal`, parada seletiva de `Spooler` e `WSearch` (se estiverem ativos e sem dependencias em execucao).
+Instalação por usuário em `%LOCALAPPDATA%\GameMode`; os relatórios são locais e não são enviados para a Internet.
 
-**Fechamento de apps:** perfis usam `graceful` (solicita encerramento ao app com janela) ou `force` (encerra sem pedir, somente em processos expressamente permitidos). Consulte e personalize os JSON antes da instalacao. Se o fechamento suave nao finalizar um aplicativo, a V7 **nao forcara** a saida dele.
+## Como funciona
 
-**Preservado:** Steam, Logitech G HUB, servicos NVIDIA/Intel, controles Dell/Alienware, audio, jogos, Windows Defender, firewall, Windows Update, drivers, Xbox/Microsoft Store, e rede. Nao altera BIOS, HPET, hypervisor, BCD, configuracoes de seguranca, clocks ou limites de potencia. A V7 nao utiliza telemetria pesada.
+1. O monitor em segundo plano identifica jogos pelo processo.
+2. O scanner coleta uma amostra da sessão: consumo de CPU/RAM, janela, identificador do processo, associação a serviços e ascendência do processo.
+3. Processos são classificados em `protected`, `game-related`, `interactive` e `review-only`. A classificação **não autoriza encerramentos**.
+4. São aplicadas preferências temporárias: Game Mode, desativação de captura em segundo plano e plano de alto desempenho **quando disponível**. A prioridade do jogo pode passar de `Normal` para `AboveNormal`, se permitida.
+5. Ao sair do jogo, preferências e prioridades são restauradas. O estado também pode ser recuperado após um encerramento inesperado.
 
-A V7 **nao mata tudo que nao e jogo**: isso quebraria o Windows. Regras permitidas ficam limitadas por uma lista de seguranca no motor, e nao por nomes arbitrarios em perfis.
+## Segurança
 
-## Desempenho e estabilidade
+- Nunca desativa antivírus, firewall, Windows Update, drivers, áudio, rede, anti-cheat ou controle térmico.
+- Não usa `Stop-Process -Force`, `Stop-Service` ou `wsl --shutdown`.
+- Não modifica BIOS, overclock, temporizadores, BCD ou configurações de segurança do Windows.
+- Não altera o conteúdo dos arquivos do jogo.
+- Evita registrar caminhos completos pessoais, títulos de janelas ou linhas de comando em relatórios.
+- Preferências do Windows podem falhar por política ou falta de permissão; o monitor registra essa condição e prossegue.
 
-- Monitor simples com verificacao de processos a cada 4 segundos; nao captura FPS.
-- Prioridade `AboveNormal` (evita `Realtime`/`High`).
-- Histerese de 12 segundos na saida do jogo para evitar restauracoes em carregamentos breves.
-- Estado salvo **antes** das alteracoes em `data/state.json`.
-- Recuperacao do estado pendente na proxima inicializacao caso o processo seja encerrado inesperadamente. Caso o PC seja desligado, a restauracao ocorre no proximo logon (nao durante o desligamento).
-- Logs privados em `%ProgramFiles%\PersonalGameModeV7\data\game-mode.log`.
+## Projeto e versões
 
-## Limites atuais
+O código começa em **0.1.0** (primeira versão pública experimental). A evolução seguirá o [Versionamento Semântico](https://semver.org/lang/pt-BR/): `0.x` durante desenvolvimento e `1.0.0` após homologação. As versões de scripts de diagnóstico pessoais anteriores não fazem parte da numeração deste repositório.
 
-- Somente **um perfil ativo por vez**; se dois jogos estiverem abertos, a escolha segue a ordem alfabetica dos arquivos de perfil.
-- Os nomes dos executaveis precisam corresponder aos encontrados no PC. O perfil MSFS nao exige Steam e preserva componentes Xbox.
-- O Windows pode reiniciar alguns servicos automaticamente; a V7 nao os derruba em repeticao.
-- Algumas otimizacoes somente entram em vigor se forem suportadas pelo Windows e pela permissao do processo.
-- Nao houve teste de execucao real no Windows nesta entrega: validar instalacao, jogo e restauracao antes de uso continuo.
+- [Arquitetura](docs/ARCHITECTURE.md)
+- [Segurança e processos](docs/PROCESS_POLICY.md)
+- [Adicionar jogos](docs/ADDING_GAMES.md)
+- [Testes e limitações](docs/TESTING.md)
+- [Histórico](CHANGELOG.md)
 
-## Codigo publico
-
-MIT License. Arquivos de sessao, dados de hardware, logs, configs locais e relatórios nao devem ser incluidos em commits. `.gitignore` ignora `data/` e formatos de logs. Nenhuma dependencia de nuvem, conta externa ou marca corporativa.
-
-Documentacao: [Arquitetura](docs/ARCHITECTURE.md), [Adicionar jogos](docs/ADDING_GAMES.md), [Seguranca](docs/SAFETY.md), [Testes](docs/TESTING.md) e [GitHub](docs/PUBLISHING.md).
+Código aberto sob licença MIT.

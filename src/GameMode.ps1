@@ -1,7 +1,7 @@
 #requires -Version 5.1
 [CmdletBinding()]
 param(
-    [ValidateSet('Monitor','Restore','Status','Validate')]
+    [ValidateSet('Monitor','Restore','Status','Validate','Scan')]
     [string]$Action = 'Monitor'
 )
 
@@ -9,354 +9,385 @@ $ErrorActionPreference = 'Stop'
 $script:Root = Split-Path -Parent $PSScriptRoot
 $script:Data = Join-Path $script:Root 'data'
 $script:StateFile = Join-Path $script:Data 'state.json'
-$script:StopFlag = Join-Path $script:Data 'stop.signal'
+$script:StopFile = Join-Path $script:Data 'stop.signal'
 $script:LogFile = Join-Path $script:Data 'game-mode.log'
-$script:TaskName = 'PersonalGameModeV7'
-$script:PlanHigh = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
-$script:AllowedServices = @('Spooler','WSearch')
-# Validacao fechada: perfis JSON nao podem apontar para componentes arbitrarios do sistema.
-$script:AllowedApps = @(
-    'chrome','msedge','firefox','brave','opera','opera_gx','cursor','code','node',
-    'spotify','onedrive','nextcloud','icloudhome','iclouddrive','icloudphotos',
-    'rustdesk','mobaxterm','widgets','phoneexperiencehost','yourphone',
-    'docker desktop','com.docker.backend','teams','ms-teams','telegram','whatsapp'
-)
-$script:ProtectedProcesses = @(
-    'steam','steamwebhelper','cs2','rdr2','flightsimulator2024',
-    'lghub','lghub_agent','lghub_updater','nvcontainer','nvidia share',
-    'dwm','explorer','winlogon','csrss','services','lsass','svchost',
-    'audiodg','igoSwServer','powershell','pwsh','gamebar','gamingservices',
-    'rockstarservice','launcher','socialclubhelper','awcc','awccservice',
-    'alienwarecommandcenter'
-)
+$script:HighPlan = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
+$script:RestoreFailures = 0
+[void](New-Item -ItemType Directory -Path $script:Data -Force -ErrorAction SilentlyContinue)
 
-if (!(Test-Path -LiteralPath $script:Data)) {
-    New-Item -ItemType Directory -Path $script:Data -Force | Out-Null
+function Write-Log([string]$Message,[string]$Level='INFO') {
+    $line = '[{0}] [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),$Level,$Message
+    try { Add-Content -LiteralPath $script:LogFile -Value $line -Encoding UTF8 } catch {}
+    if ($Action -ne 'Monitor') { Write-Host $line }
 }
 
-function Log([string]$Message,[string]$Level='INFO') {
-    $entry = '[{0}] [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Message
-    try { Add-Content -LiteralPath $script:LogFile -Value $entry -Encoding UTF8 } catch {}
-    if ($Action -ne 'Monitor') { Write-Host $entry }
-}
-function Get-Settings {
-    $path = Join-Path $script:Root 'config.json'
-    $cfg = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
-    $s = [int]$cfg.pollSeconds
-    if ($s -lt 2 -or $s -gt 15) { throw 'pollSeconds deve estar entre 2 e 15.' }
-    $g = [int]$cfg.exitGraceSeconds
-    if ($g -lt 5 -or $g -gt 120) { throw 'exitGraceSeconds deve estar entre 5 e 120.' }
+function Read-Config {
+    $cfg = Get-Content (Join-Path $script:Root 'config.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($cfg.schemaVersion -ne 1) { throw 'Formato de configuracao nao suportado.' }
+    if ($cfg.autoCloseProcesses -ne $false -or $cfg.stopServices -ne $false) {
+        throw 'Esta versao nao admite fechamento automatico de processos ou servicos.'
+    }
+    if ([int]$cfg.pollIntervalSeconds -lt 3 -or [int]$cfg.pollIntervalSeconds -gt 30) {
+        throw 'pollIntervalSeconds precisa estar entre 3 e 30.'
+    }
+    if ([int]$cfg.exitGraceSeconds -lt 5 -or [int]$cfg.exitGraceSeconds -gt 120) {
+        throw 'exitGraceSeconds precisa estar entre 5 e 120.'
+    }
     return $cfg
 }
-function Get-Profiles {
+
+function Read-Profiles {
     $result = @()
-    foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $script:Root 'profiles') -Filter '*.json' -File | Sort-Object Name)) {
+    foreach ($file in @(Get-ChildItem (Join-Path $script:Root 'profiles') -Filter '*.json' -File)) {
         $p = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($p.enabled -eq $false) { continue }
-        if ($p.id -notmatch '^[a-z0-9-]{2,40}$') { throw "ID de perfil invalido em $($file.Name)" }
-        if ($p.processName -notmatch '^[A-Za-z0-9_\-]{2,64}$') { throw "Nome de processo invalido em $($file.Name)" }
-        if ($p.processName.ToLowerInvariant() -in @('svchost','explorer','winlogon','services','lsass','dwm')) {
-            throw "Processo protegido no perfil $($file.Name)"
-        }
-        foreach ($svc in @($p.stopServices)) {
-            if ($svc -notin $script:AllowedServices) { throw "Servico nao autorizado ($svc) no perfil $($file.Name)" }
-        }
-        foreach ($item in @($p.closeApps)) {
-            $name = [string]$item.name
-            if ($name.ToLowerInvariant() -notin $script:AllowedApps -or $name.ToLowerInvariant() -in $script:ProtectedProcesses) {
-                throw "Aplicativo nao autorizado ($name) no perfil $($file.Name)"
-            }
-            if ($item.mode -notin @('graceful','force')) { throw "Modo de fechamento invalido para $name" }
+        if ([string]$p.id -notmatch '^[a-z][a-z0-9-]{1,39}$') { throw "ID invalido em $($file.Name)." }
+        if ([string]$p.processName -notmatch '^[A-Za-z0-9_-]{2,64}$') { throw "Processo invalido em $($file.Name)." }
+        foreach ($forbidden in @('closeApps','killApps','stopServices','stopWSL','commands')) {
+            if ($p.PSObject.Properties.Name -contains $forbidden) { throw "Campo inseguro no perfil $($file.Name): $forbidden" }
         }
         $result += $p
     }
-    if ($result.Count -eq 0) { throw 'Nenhum perfil ativo encontrado.' }
-    if (@($result | Select-Object -ExpandProperty id -Unique).Count -ne $result.Count) { throw 'IDs de perfis repetidos.' }
-    return @($result)
+    if ($result.Count -eq 0) { throw 'Nenhum perfil habilitado.' }
+    if (@($result | Select-Object -ExpandProperty id -Unique).Count -ne $result.Count) {
+        throw 'IDs duplicados nos perfis.'
+    }
+    return @($result | Sort-Object id)
 }
-function Save-State($value) {
-    $temp = $script:StateFile + '.tmp'
-    ConvertTo-Json -InputObject $value -Depth 12 | Set-Content -LiteralPath $temp -Encoding UTF8
-    Move-Item -LiteralPath $temp -Destination $script:StateFile -Force
-}
+
 function Read-State {
     if (!(Test-Path -LiteralPath $script:StateFile)) { return $null }
-    return Get-Content -LiteralPath $script:StateFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    return (Get-Content -LiteralPath $script:StateFile -Raw -Encoding UTF8 | ConvertFrom-Json)
 }
-function Get-CurrentPowerPlan {
+
+function Save-State($Value) {
+    $tmp = $script:StateFile + '.tmp'
+    ConvertTo-Json -InputObject $Value -Depth 12 |
+        Set-Content -LiteralPath $tmp -Encoding UTF8
+    Move-Item -LiteralPath $tmp -Destination $script:StateFile -Force
+}
+
+function Read-PowerPlan {
     try {
-        $output = (& powercfg.exe /getactivescheme 2>&1 | Out-String)
-        if ($LASTEXITCODE -eq 0 -and $output -match '([A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12})') { return $Matches[1] }
-    } catch { Log "Nao foi possivel consultar plano de energia: $_" 'WARN' }
+        $out = (& powercfg.exe /getactivescheme 2>&1 | Out-String)
+        if ($LASTEXITCODE -eq 0 -and $out -match '([a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12})') {
+            return $Matches[1].ToLowerInvariant()
+        }
+    } catch { Write-Log "Plano de energia nao identificado: $_" 'WARN' }
     return $null
 }
-function Snapshot-Registry([string]$Path,[string]$Name,[int]$Value) {
-    $exists = $false; $old = $null
-    if (Test-Path -LiteralPath $Path) {
-        try {
-            $key = Get-Item -LiteralPath $Path
+
+function Snapshot-Registry([string]$Path,[string]$Name,[int]$Target) {
+    $exists = $false
+    $old = $null
+    try {
+        if (Test-Path $Path) {
+            $key = Get-Item -Path $Path
             if ($key.GetValueNames() -contains $Name) {
                 $exists = $true
-                $old = $key.GetValue($Name)
+                $old = [int]$key.GetValue($Name)
             }
-        } catch { Log "Registro original inacessivel: $Path/$Name" 'WARN' }
+        }
+    } catch {
+        throw "Impossivel capturar valor original de $Name. Nada sera aplicado: $_"
     }
-    return [ordered]@{ path=$Path; name=$Name; existed=$exists; value=$old; target=$Value }
+    return [ordered]@{path=$Path;name=$Name;existed=$exists;value=$old;target=$Target}
 }
-function Get-RegistryChanges {
-    return @(
-        (Snapshot-Registry 'HKCU:\Software\Microsoft\GameBar' 'AutoGameModeEnabled' 1),
-        (Snapshot-Registry 'HKCU:\System\GameConfigStore' 'GameDVR_Enabled' 0),
-        (Snapshot-Registry 'HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR' 'AppCaptureEnabled' 0)
-    )
+
+function Get-RegistrySnapshot($cfg) {
+    $items = @()
+    if ($cfg.applyGameMode) {
+        $items += Snapshot-Registry 'HKCU:\Software\Microsoft\GameBar' 'AutoGameModeEnabled' 1
+    }
+    if ($cfg.disableBackgroundCapture) {
+        $items += Snapshot-Registry 'HKCU:\System\GameConfigStore' 'GameDVR_Enabled' 0
+        $items += Snapshot-Registry 'HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR' 'AppCaptureEnabled' 0
+    }
+    return @($items)
 }
-function Set-GameRegistry($items) {
+
+function Apply-Registry($items) {
     foreach ($item in @($items)) {
         try {
-            if (!(Test-Path -LiteralPath $item.path)) { New-Item -Path $item.path -Force | Out-Null }
-            New-ItemProperty -Path $item.path -Name $item.name -PropertyType DWord -Value ([int]$item.target) -Force | Out-Null
-        } catch { Log "Falha ao definir preferencia $($item.name): $_" 'WARN' }
+            if (!(Test-Path $item.path)) { [void](New-Item -Path $item.path -Force) }
+            [void](New-ItemProperty -Path $item.path -Name $item.name -PropertyType DWord -Value ([int]$item.target) -Force)
+        } catch { Write-Log "Registro nao alterado: $($item.name): $_" 'WARN' }
     }
 }
-function Restore-GameRegistry($items) {
+
+function Restore-Registry($items) {
     foreach ($item in @($items)) {
         try {
-            if ($item.existed) {
-                if (!(Test-Path -LiteralPath $item.path)) { New-Item -Path $item.path -Force | Out-Null }
-                New-ItemProperty -Path $item.path -Name $item.name -PropertyType DWord -Value ([int]$item.value) -Force | Out-Null
-            } elseif (Test-Path -LiteralPath $item.path) {
-                Remove-ItemProperty -Path $item.path -Name $item.name -ErrorAction SilentlyContinue
-            }
-        } catch { Log "Nao foi possivel restaurar $($item.name): $_" 'ERROR'; $script:RestoreErrors++ }
-    }
-}
-function Snapshot-Services($services) {
-    $state = @()
-    foreach ($name in @($services | Select-Object -Unique)) {
-        if ($name -notin $script:AllowedServices) { continue }
-        $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
-        if ($null -eq $svc) { continue }
-        $state += [ordered]@{ name=$name; wasRunning=($svc.Status -eq 'Running') }
-    }
-    return @($state)
-}
-function Stop-SelectedServices($states) {
-    foreach ($item in @($states)) {
-        if (!$item.wasRunning) { continue }
-        try {
-            $service = Get-Service -Name $item.name -ErrorAction Stop
-            if (@($service.DependentServices | Where-Object { $_.Status -eq 'Running' }).Count -gt 0) {
-                Log "Servico $($item.name) tem dependencias ativas; preservado." 'WARN'
+            if (!(Test-Path $item.path)) { continue }
+            $current = (Get-Item -Path $item.path).GetValue([string]$item.name,$null)
+            if ($null -eq $current -or [int]$current -ne [int]$item.target) {
+                Write-Log "Preferencia $($item.name) mudou externamente; preservada." 'WARN'
                 continue
             }
-            Stop-Service -Name $item.name -ErrorAction Stop
-            Log "Servico opcional pausado: $($item.name)"
-        } catch { Log "Servico $($item.name) preservado (falha/permissao): $_" 'WARN' }
-    }
-}
-function Restore-Services($states) {
-    foreach ($item in @($states)) {
-        if (!$item.wasRunning -or $item.name -notin $script:AllowedServices) { continue }
-        try {
-            $svc = Get-Service -Name $item.name -ErrorAction Stop
-            if ($svc.Status -ne 'Running') {
-                Start-Service -Name $item.name -ErrorAction Stop
-                Log "Servico restaurado: $($item.name)"
+            if ($item.existed) {
+                [void](New-ItemProperty -Path $item.path -Name $item.name -PropertyType DWord -Value ([int]$item.value) -Force)
+            } else {
+                Remove-ItemProperty -Path $item.path -Name $item.name -ErrorAction Stop
             }
-        } catch { Log "Falha restaurando servico $($item.name): $_" 'ERROR'; $script:RestoreErrors++ }
-    }
-}
-function Close-KnownApps($profile) {
-    foreach ($app in @($profile.closeApps)) {
-        $name = [string]$app.name
-        if ($name.ToLowerInvariant() -notin $script:AllowedApps -or $name.ToLowerInvariant() -in $script:ProtectedProcesses) { continue }
-        foreach ($proc in @(Get-Process -Name $name -ErrorAction SilentlyContinue)) {
-            try {
-                if ([int]$proc.Id -eq $PID) { continue }
-                if ($app.mode -eq 'graceful') {
-                    if ($proc.MainWindowHandle -eq [IntPtr]::Zero) { continue }
-                    [void]$proc.CloseMainWindow()
-                    Log "Fechamento solicitado: $name (PID $($proc.Id))"
-                } else {
-                    Stop-Process -Id $proc.Id -Force -ErrorAction Stop
-                    Log "Aplicativo autorizado encerrado: $name (PID $($proc.Id))"
-                }
-            } catch { Log "Falha encerrando $name: $_" 'WARN' }
+        } catch {
+            Write-Log "Falha na restauracao de $($item.name): $_" 'ERROR'
+            $script:RestoreFailures++
         }
     }
-    if ($profile.stopWSL -eq $true) {
+}
+
+function Read-ProcessesByName([string]$Name) {
+    return @(Get-Process -Name $Name -ErrorAction SilentlyContinue)
+}
+
+function Save-GamePriority($profile) {
+    $state = Read-State
+    if ($null -eq $state) { return }
+    foreach ($proc in @(Read-ProcessesByName $profile.processName)) {
         try {
-            $vm = @(Get-Process -Name 'vmmemWSL','vmmem' -ErrorAction SilentlyContinue)
-            if ($vm.Count -gt 0 -and (Get-Command 'wsl.exe' -ErrorAction SilentlyContinue)) {
-                & wsl.exe --shutdown 2>&1 | Out-Null
-                Log 'WSL interrompido conforme perfil. Sessoes WSL nao serao reabertas.'
+            if ($proc.PriorityClass -ne [Diagnostics.ProcessPriorityClass]::Normal) { continue }
+            $snapshot = [ordered]@{
+                pid=[int]$proc.Id
+                started=$proc.StartTime.ToUniversalTime().ToString('o')
+                original=[string]$proc.PriorityClass
             }
-        } catch { Log "WSL preservado: $_" 'WARN' }
+            if (@($state.priorities | Where-Object { $_.pid -eq $proc.Id }).Count -gt 0) { continue }
+            $state.priorities = @($state.priorities) + @($snapshot)
+            Save-State $state
+            $proc.PriorityClass = [Diagnostics.ProcessPriorityClass]::AboveNormal
+            Write-Log "Prioridade ajustada para AboveNormal: PID $($proc.Id)"
+        } catch { Write-Log "Prioridade preservada: $_" 'WARN' }
     }
 }
-function Apply-GamePriority($profile) {
-    foreach ($proc in @(Get-Process -Name $profile.processName -ErrorAction SilentlyContinue)) {
-        try {
-            $state = Read-State
-            if ($null -eq $state) { continue }
-            $known = @($state.priorities | Where-Object { $_.pid -eq $proc.Id })
-            if ($known.Count -eq 0) {
-                $snapshot = [ordered]@{
-                    pid=[int]$proc.Id
-                    startTime=$proc.StartTime.ToUniversalTime().ToString('o')
-                    original=[string]$proc.PriorityClass
-                }
-                # Salvar o valor antigo antes de mudar a prioridade.
-                $state.priorities = @($state.priorities) + @($snapshot)
-                Save-State $state
-            }
-            if ($proc.PriorityClass -ne 'AboveNormal') {
-                $proc.PriorityClass = 'AboveNormal'
-                Log "Prioridade AboveNormal: $($profile.processName) PID $($proc.Id)"
-            }
-        } catch { Log "Prioridade nao alterada para $($profile.processName): $_" 'WARN' }
-    }
-}
+
 function Restore-Priorities($items) {
     foreach ($item in @($items)) {
         try {
             $proc = Get-Process -Id ([int]$item.pid) -ErrorAction SilentlyContinue
             if ($null -eq $proc) { continue }
-            if ($proc.StartTime.ToUniversalTime().ToString('o') -ne [string]$item.startTime) { continue }
-            $proc.PriorityClass = [System.Diagnostics.ProcessPriorityClass]([string]$item.original)
-            Log "Prioridade restaurada: PID $($proc.Id)"
-        } catch { Log "Falha ao restaurar prioridade PID $($item.pid): $_" 'WARN' }
-    }
-}
-function Start-Profile($profile, $settings) {
-    if (Read-State) { throw 'Estado anterior pendente: execute a restauracao antes de otimizar.' }
-    $oldPlan = Get-CurrentPowerPlan
-    $services = Snapshot-Services $profile.stopServices
-    $snapshot = [ordered]@{
-        version=7; id=[string]$profile.id; started=(Get-Date).ToString('o')
-        oldPlan=$oldPlan; selectedPlan=$null
-        registry=@(Get-RegistryChanges); services=@($services); priorities=@()
-    }
-    # Salva ANTES da primeira mudanca, para recuperar ate apos queda de energia.
-    Save-State $snapshot
-    Log "Perfil iniciado: $($profile.displayName)"
-    Set-GameRegistry $snapshot.registry
-    if ($settings.useHighPerformancePlan -eq $true -and $oldPlan -and $oldPlan -ne $script:PlanHigh) {
-        try {
-            $output = (& powercfg.exe /setactive $script:PlanHigh 2>&1 | Out-String)
-            if ($LASTEXITCODE -eq 0) {
-                Log 'Plano de alto desempenho ativado temporariamente.'
-            } else { Log "Plano alto desempenho indisponivel: $output" 'WARN' }
-        } catch { Log "Plano de energia nao alterado: $_" 'WARN' }
-    }
-    Close-KnownApps $profile
-    Stop-SelectedServices $services
-    Apply-GamePriority $profile
-}
-function Restore-Session {
-    $state = $null
-    try { $state = Read-State }
-    catch { Log "Estado invalido; preserve data/state.json para recuperacao manual: $_" 'ERROR'; return $false }
-    if ($null -eq $state) { return $true }
-    $script:RestoreErrors = 0
-    Log "Restaurando perfil $($state.id)..."
-    Restore-GameRegistry $state.registry
-    Restore-Priorities $state.priorities
-    Restore-Services $state.services
-    if ($state.oldPlan) {
-        try {
-            $current = Get-CurrentPowerPlan
-            if ($current -and $current -ne $state.oldPlan) {
-                & powercfg.exe /setactive $state.oldPlan 2>&1 | Out-Null
-                if ($LASTEXITCODE -ne 0) { throw "powercfg exit=$LASTEXITCODE" }
-                Log "Plano anterior restaurado: $($state.oldPlan)"
+            if ($proc.StartTime.ToUniversalTime().ToString('o') -ne [string]$item.started) { continue }
+            if ($proc.PriorityClass -eq [Diagnostics.ProcessPriorityClass]::AboveNormal) {
+                $proc.PriorityClass = [Diagnostics.ProcessPriorityClass]::Normal
             }
-        } catch { Log "Plano nao restaurado: $_" 'ERROR'; $script:RestoreErrors++ }
+        } catch {
+            Write-Log "Nao foi possivel restaurar prioridade: $_" 'WARN'
+        }
     }
-    if ($script:RestoreErrors -eq 0) {
-        Remove-Item -LiteralPath $script:StateFile -Force -ErrorAction SilentlyContinue
-        Log 'Restauracao concluida. Aplicativos encerrados nao sao reabertos.'
-        return $true
-    }
-    Log 'Restauracao parcial; state.json preservado para nova tentativa.' 'WARN'
-    return $false
 }
-function Active-Profile($profiles) {
-    foreach ($profile in @($profiles)) {
-        if (@(Get-Process -Name $profile.processName -ErrorAction SilentlyContinue).Count -gt 0) { return $profile }
+
+function Scan-Processes($profile) {
+    if ($null -eq $profile) { return }
+    try {
+        # Apenas leitura: a verificacao de impacto nunca autoriza encerramento.
+        $first = @(Get-Process -ErrorAction SilentlyContinue)
+        $before = @{}
+        foreach ($p in $first) {
+            try { $before[[int]$p.Id] = [double]$p.CPU } catch {}
+        }
+        Start-Sleep -Milliseconds 700
+        $later = @(Get-Process -ErrorAction SilentlyContinue)
+        $cimMap = @{}
+        try {
+            foreach ($p in @(Get-CimInstance Win32_Process -ErrorAction Stop)) {
+                $cimMap[[int]$p.ProcessId] = $p
+            }
+        } catch { Write-Log "Metadados CIM indisponiveis: $_" 'WARN' }
+        $servicePids = @{}
+        try {
+            foreach ($svc in @(Get-CimInstance Win32_Service -ErrorAction Stop)) {
+                if ([int]$svc.ProcessId -gt 0) { $servicePids[[int]$svc.ProcessId] = $true }
+            }
+        } catch { Write-Log "Relacionamento de servicos indisponivel: $_" 'WARN' }
+        $gameIds = @{}
+        foreach ($p in @($later | Where-Object { $_.ProcessName -ieq $profile.processName })) {
+            $gameIds[[int]$p.Id] = $true
+        }
+        $gameRelated = @{}
+        foreach ($g in @($gameIds.Keys)) {
+            $current = [int]$g
+            for ($i=0; $i -lt 25 -and $current -gt 0; $i++) {
+                if ($gameRelated.ContainsKey($current)) { break }
+                $gameRelated[$current] = $true
+                if (!$cimMap.ContainsKey($current)) { break }
+                $parent = [int]$cimMap[$current].ParentProcessId
+                if ($parent -eq $current) { break }
+                $current = $parent
+            }
+        }
+        $result = @()
+        foreach ($p in $later) {
+            try {
+                $pidValue = [int]$p.Id
+                $cat = 'protected'
+                $reason = 'Dependencia ou natureza desconhecida'
+                $meta = $cimMap[$pidValue]
+                $fullPath = ''
+                if ($meta) { $fullPath = [string]$meta.ExecutablePath }
+                if ($gameRelated.ContainsKey($pidValue)) {
+                    $cat = 'game-related'; $reason = 'Jogo ou processo ancestral'
+                } elseif ($servicePids.ContainsKey($pidValue)) {
+                    $reason = 'Hospeda servico Windows'
+                } elseif ($fullPath -and $fullPath.StartsWith($env:WINDIR,[StringComparison]::OrdinalIgnoreCase)) {
+                    $reason = 'Componente do Windows'
+                } elseif ($p.MainWindowHandle -ne [IntPtr]::Zero) {
+                    $cat = 'interactive'; $reason = 'Janela de usuario (pode conter dados nao salvos)'
+                } elseif ($fullPath -and $p.SessionId -eq (Get-Process -Id $PID).SessionId) {
+                    $cat = 'review-only'; $reason = 'Candidato a observacao, sem permissao de fechamento'
+                }
+                $delta = 0.0
+                if ($before.ContainsKey($pidValue)) {
+                    $delta = [Math]::Max(0.0,([double]$p.CPU-$before[$pidValue]))
+                }
+                $result += [ordered]@{
+                    pid=$pidValue; name=$p.ProcessName; category=$cat
+                    reason=$reason; memoryMB=[Math]::Round($p.WorkingSet64 / 1MB,1)
+                    cpuDeltaSeconds=[Math]::Round($delta,3)
+                }
+            } catch {}
+        }
+        $file = Join-Path $script:Data ('scan-{0}-{1}.json' -f $profile.id,(Get-Date -Format 'yyyyMMdd-HHmmss'))
+        $payload = [ordered]@{
+            version='0.1.0';game=$profile.id;capturedAt=(Get-Date).ToString('o')
+            warning='Classificacao informativa. Nenhum processo foi encerrado.'
+            processes=@($result)
+        }
+        ConvertTo-Json -InputObject $payload -Depth 6 | Set-Content -LiteralPath $file -Encoding UTF8
+        Write-Log ("Scan de processos concluido: {0} processos, {1} para revisao. Nenhum encerramento." -f
+            $result.Count,@($result | Where-Object { $_.category -eq 'review-only' }).Count)
+    } catch { Write-Log "Falha no scan (jogo preservado): $_" 'WARN' }
+}
+
+function Start-Profile($profile,$cfg) {
+    if (Read-State) { throw 'Snapshot anterior pendente; restauracao necessaria.' }
+    $oldPlan = Read-PowerPlan
+    $items = @(Get-RegistrySnapshot $cfg)
+    $snapshot = [ordered]@{
+        schemaVersion=1;game=$profile.id;startedAt=(Get-Date).ToString('o')
+        oldPlan=$oldPlan;plannedHigh=$false
+        registry=$items;priorities=@()
+    }
+    if ($cfg.preferHighPerformancePlan -and $oldPlan -and $oldPlan -ne $script:HighPlan) {
+        $available = (& powercfg.exe /list 2>&1 | Out-String)
+        if ($LASTEXITCODE -eq 0 -and $available.ToLowerInvariant().Contains($script:HighPlan)) {
+            $snapshot.plannedHigh = $true
+        }
+    }
+    Save-State $snapshot
+    Write-Log "Jogo detectado: $($profile.name). Snapshot salvo."
+    if ($cfg.scanProcessesOnGameStart) { Scan-Processes $profile }
+    Apply-Registry $items
+    if ($snapshot.plannedHigh) {
+        try {
+            & powercfg.exe /setactive $script:HighPlan 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) { Write-Log 'Alto desempenho habilitado temporariamente.' }
+            else { Write-Log 'Plano de alto desempenho indisponivel.' 'WARN' }
+        } catch { Write-Log "Plano de energia preservado: $_" 'WARN' }
+    }
+    if ($cfg.setAboveNormalPriority) { Save-GamePriority $profile }
+}
+
+function Restore-Session {
+    $state = Read-State
+    if ($null -eq $state) { return $true }
+    if ($state.schemaVersion -ne 1) {
+        Write-Log 'Snapshot incompatível; preservado para revisao manual.' 'ERROR'
+        return $false
+    }
+    $script:RestoreFailures = 0
+    Write-Log "Restaurando sessao do jogo $($state.game)"
+    Restore-Registry $state.registry
+    Restore-Priorities $state.priorities
+    if ($state.plannedHigh -and $state.oldPlan) {
+        try {
+            $current = Read-PowerPlan
+            if ($current -eq $script:HighPlan) {
+                & powercfg.exe /setactive ([string]$state.oldPlan) 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "Erro powercfg ($LASTEXITCODE)" }
+            } elseif ($null -eq $current) {
+                throw 'Plano atual nao pode ser consultado.'
+            } else { Write-Log 'Plano alterado por outro aplicativo: preservado.' 'WARN' }
+        } catch {
+            $script:RestoreFailures++
+            Write-Log "Falha ao restaurar energia: $_" 'ERROR'
+        }
+    }
+    if ($script:RestoreFailures -gt 0) {
+        Write-Log 'Restauracao incompleta; snapshot mantido.' 'ERROR'
+        return $false
+    }
+    Remove-Item -LiteralPath $script:StateFile -Force -ErrorAction Stop
+    Write-Log 'Restauracao finalizada.'
+    return $true
+}
+
+function Find-Game($profiles) {
+    foreach ($p in @($profiles)) {
+        if (@(Read-ProcessesByName $p.processName).Count -gt 0) { return $p }
     }
     return $null
 }
-function Stop-Requested { return (Test-Path -LiteralPath $script:StopFlag) }
+
 function Run-Monitor {
-    $cfg = Get-Settings
-    $profiles = @(Get-Profiles)
+    $cfg = Read-Config
+    $profiles = @(Read-Profiles)
     $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value.Replace('-','_')
-    $lock = New-Object System.Threading.Mutex($false, ('Local\PersonalGameModeV7_' + $sid))
-    $haveLock = $false
+    $mutex = New-Object Threading.Mutex($false,('Local\GameMode_' + $sid))
+    $locked = $false
     try {
-        $haveLock = $lock.WaitOne(0)
-        if (!$haveLock) { Log 'Monitor ja em execucao; encerrando duplicata.'; return }
-        Remove-Item -LiteralPath $script:StopFlag -Force -ErrorAction SilentlyContinue
-        if (!(Restore-Session)) { Log 'Recuperacao incompleta; monitor nao iniciara.' 'ERROR'; return }
-        Log "Monitor automatico iniciado: $($profiles.Count) perfil(is), intervalo $($cfg.pollSeconds)s."
-        $activeId = $null
+        $locked = $mutex.WaitOne(0)
+        if (!$locked) { Write-Log 'Monitor ja esta em execucao.'; return }
+        Remove-Item -LiteralPath $script:StopFile -Force -ErrorAction SilentlyContinue
+        if (!(Restore-Session)) { throw 'Falha recuperando snapshot anterior.' }
+        Write-Log ("Monitor iniciado. Versao 0.1.0, {0} perfis." -f $profiles.Count)
+        $active = $null
         $lastSeen = Get-Date
-        while (!(Stop-Requested)) {
+        while (!(Test-Path -LiteralPath $script:StopFile)) {
             try {
-                $detected = Active-Profile $profiles
-                if ($null -eq $activeId) {
-                    if ($null -ne $detected) {
-                        Start-Profile $detected $cfg
-                        $activeId = $detected.id
+                if ($null -eq $active) {
+                    $next = Find-Game $profiles
+                    if ($null -ne $next) {
+                        Start-Profile $next $cfg
+                        $active = $next
                         $lastSeen = Get-Date
                     }
                 } else {
-                    $currentProfile = @($profiles | Where-Object { $_.id -eq $activeId })[0]
-                    $stillRunning = @(Get-Process -Name $currentProfile.processName -ErrorAction SilentlyContinue).Count -gt 0
-                    if ($stillRunning) {
+                    if (@(Read-ProcessesByName $active.processName).Count -gt 0) {
                         $lastSeen = Get-Date
-                        Apply-GamePriority $currentProfile
-                    } elseif (((Get-Date) - $lastSeen).TotalSeconds -ge [int]$cfg.exitGraceSeconds) {
-                        if (Restore-Session) { $activeId = $null }
+                        if ($cfg.setAboveNormalPriority) { Save-GamePriority $active }
+                    } elseif (((Get-Date)-$lastSeen).TotalSeconds -ge [int]$cfg.exitGraceSeconds) {
+                        if (Restore-Session) { $active = $null }
                     }
                 }
-            } catch { Log "Erro no ciclo de monitoramento: $_" 'ERROR' }
-            Start-Sleep -Seconds ([int]$cfg.pollSeconds)
+            } catch { Write-Log "Erro no ciclo de monitoramento: $_" 'ERROR' }
+            Start-Sleep -Seconds ([int]$cfg.pollIntervalSeconds)
         }
     } finally {
-        if ($haveLock) {
-            [void](Restore-Session)
-            [void]$lock.ReleaseMutex()
+        if ($locked) {
+            try { [void](Restore-Session) } catch { Write-Log "Restaure manualmente: $_" 'ERROR' }
+            [void]$mutex.ReleaseMutex()
         }
-        $lock.Dispose()
-        Log 'Monitor encerrado.'
+        $mutex.Dispose()
+        Write-Log 'Monitor encerrado.'
     }
 }
 
 switch ($Action) {
-    'Monitor'  { Run-Monitor }
-    'Restore'  {
-        # Solicite primeiro a parada do monitor com RESTAURAR.cmd; evite corridas.
-        if (!(Restore-Session)) { exit 2 }
-    }
-    'Status'   {
+    'Monitor' { Run-Monitor }
+    'Restore' { if (!(Restore-Session)) { exit 2 } }
+    'Status' {
         $state = Read-State
-        if ($state) { Write-Host "Perfil ativo/pendente: $($state.id) desde $($state.started)" }
-        else { Write-Host 'Nenhum perfil ativo ou restauracao pendente.' }
-        try {
-            $task = Get-ScheduledTask -TaskName $script:TaskName -ErrorAction Stop
-            Write-Host "Agendamento: $($task.State)"
-        } catch { Write-Host 'Agendamento: nao instalado.' }
-        if (Test-Path -LiteralPath $script:LogFile) {
-            Write-Host 'Ultimas linhas do log:'
-            Get-Content -LiteralPath $script:LogFile -Tail 12
-        }
+        if ($null -eq $state) { Write-Host 'Perfil: nenhum ativo.' }
+        else { Write-Host "Perfil: $($state.game), iniciado $($state.startedAt)" }
+        if (Test-Path $script:LogFile) { Get-Content $script:LogFile -Tail 15 }
+    }
+    'Scan' {
+        $p = Find-Game @(Read-Profiles)
+        if ($null -eq $p) { Write-Host 'Nenhum jogo reconhecido em execucao.' }
+        else { Scan-Processes $p }
     }
     'Validate' {
-        [void](Get-Settings)
-        $profiles = @(Get-Profiles)
-        Write-Host "OK: $($profiles.Count) perfis validados."
-        foreach ($p in $profiles) { Write-Host " - $($p.id): $($p.processName)" }
+        [void](Read-Config)
+        $profiles = @(Read-Profiles)
+        Write-Host ("OK: {0} perfis. Nenhuma lista de encerramento." -f $profiles.Count)
     }
 }

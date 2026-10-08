@@ -1,3 +1,4 @@
 @echo off
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ProgramFiles%\PersonalGameModeV7\src\GameMode.ps1" -Action Status
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Manage.ps1" -Action Status
+if errorlevel 1 echo Operacao nao concluida. Verifique a mensagem de erro.
 pause

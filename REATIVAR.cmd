@@ -1,4 +1,4 @@
 @echo off
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Start.ps1"
-echo.
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Manage.ps1" -Action Start
+if errorlevel 1 echo Operacao nao concluida. Verifique a mensagem de erro.
 pause

@@ -1,65 +1,12 @@
 {
   "id": "cs2",
-  "displayName": "Counter-Strike 2",
+  "name": "Counter-Strike 2",
   "processName": "cs2",
+  "notes": "Prioriza baixa latência; preserva Steam, anti-cheat, periféricos e drivers.",
   "enabled": true,
-  "stopServices": [
-    "WSearch",
-    "Spooler"
-  ],
-  "stopWSL": true,
-  "closeApps": [
-    {
-      "name": "cursor",
-      "mode": "graceful"
-    },
-    {
-      "name": "chrome",
-      "mode": "graceful"
-    },
-    {
-      "name": "node",
-      "mode": "force"
-    },
-    {
-      "name": "spotify",
-      "mode": "force"
-    },
-    {
-      "name": "nextcloud",
-      "mode": "graceful"
-    },
-    {
-      "name": "icloudhome",
-      "mode": "graceful"
-    },
-    {
-      "name": "icloudphotos",
-      "mode": "graceful"
-    },
-    {
-      "name": "onedrive",
-      "mode": "graceful"
-    },
-    {
-      "name": "docker desktop",
-      "mode": "graceful"
-    },
-    {
-      "name": "rustdesk",
-      "mode": "graceful"
-    },
-    {
-      "name": "mobaxterm",
-      "mode": "graceful"
-    },
-    {
-      "name": "widgets",
-      "mode": "force"
-    },
-    {
-      "name": "phoneexperiencehost",
-      "mode": "force"
-    }
-  ]
+  "policy": {
+    "unknownProcesses": "preserve",
+    "interactiveProcesses": "preserve",
+    "externalGameHelpers": "preserve"
+  }
 }

@@ -1,17 +1,26 @@
-# Como adicionar um novo jogo
+# Adicionar jogos
 
-1. Identifique o nome real do executavel pelo Gerenciador de Tarefas, sem `.exe`.
-2. Copie `profiles/rdr2.json` para `profiles/novo-jogo.json`.
-3. Altere `id`, `displayName`, `processName` e `enabled`.
-4. Defina apenas os aplicativos/servicos dispensaveis especificamente nesse jogo.
-5. Rode `powershell.exe -NoProfile -File .\src\GameMode.ps1 -Action Validate` no diretorio instalado.
-6. Execute `RESTAURAR.cmd`, atualize o perfil no diretorio instalado e use `REATIVAR.cmd`.
+1. Consulte no Gerenciador de Tarefas o nome **exato** do processo, sem `.exe`.
+2. Copie um arquivo em `profiles/` com outro nome.
+3. Edite `id`, `name`, `processName` e `notes`.
+4. Use `enabled: true`; `policy` apenas documenta requisitos e preservação.
+5. Rode `VERIFICAR.cmd` e reinstale com `INSTALAR.cmd` para atualizar os arquivos.
 
-## Restricoes
+Exemplo:
 
-- `stopServices` aceita somente `WSearch` e `Spooler`.
-- `closeApps` exige nomes autorizados pelo motor e `mode: graceful` ou `force`.
-- `stopWSL: true` pode interromper sessoes WSL nao recuperaveis automaticamente.
-- `enabled: false` desabilita o perfil.
-- O programa prioriza seguranca: nomes arbitrarios de processos e servicos sao recusados.
-- Perfis devem ser versionados; dados reais de sessao, caminhos privados e logs nao.
+```json
+{
+  "id": "novo-jogo",
+  "name": "Novo Jogo",
+  "processName": "NovoJogo",
+  "notes": "Preservar o launcher e os controles",
+  "enabled": true,
+  "policy": {
+    "unknownProcesses": "preserve",
+    "interactiveProcesses": "preserve",
+    "externalGameHelpers": "preserve"
+  }
+}
+```
+
+**Não insira listas de aplicativos para matar ou serviços para parar.** O motor rejeita essas propriedades na versão inicial.

@@ -1,41 +1,12 @@
 {
   "id": "rdr2",
-  "displayName": "Red Dead Redemption 2",
+  "name": "Red Dead Redemption 2",
   "processName": "RDR2",
+  "notes": "Preserva Rockstar Launcher, Steam quando presente e integrações de jogos.",
   "enabled": true,
-  "stopServices": [
-    "WSearch",
-    "Spooler"
-  ],
-  "stopWSL": true,
-  "closeApps": [
-    {
-      "name": "cursor",
-      "mode": "graceful"
-    },
-    {
-      "name": "chrome",
-      "mode": "graceful"
-    },
-    {
-      "name": "node",
-      "mode": "force"
-    },
-    {
-      "name": "spotify",
-      "mode": "force"
-    },
-    {
-      "name": "nextcloud",
-      "mode": "graceful"
-    },
-    {
-      "name": "docker desktop",
-      "mode": "graceful"
-    },
-    {
-      "name": "widgets",
-      "mode": "force"
-    }
-  ]
+  "policy": {
+    "unknownProcesses": "preserve",
+    "interactiveProcesses": "preserve",
+    "externalGameHelpers": "preserve"
+  }
 }

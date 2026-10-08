@@ -1,27 +1,24 @@
-# Arquitetura
+# Arquitetura — Game Mode 0.1.0
 
-## Fluxo
+- **Monitor**: identifica jogo pelo processo com amostragem periódica e histerese na saída.
+- **Process scanner**: captura consumo de CPU/RAM, janela, árvore de processos e associação a serviços; produz diagnóstico local.
+- **Decision policy**: separa uso de recursos de evidência de segurança. O estado inicial é somente observação de processos de fundo, sem encerramento.
+- **Optimizer**: altera apenas Game Mode, captura, plano disponível e prioridade `Normal → AboveNormal` quando autorizada.
+- **Restore**: salva snapshot antes de aplicar alterações, restaura o estado anterior e permite recuperação no próximo início.
 
-1. O instalador verifica a sintaxe PowerShell/JSON, copia o codigo para `%ProgramFiles%\PersonalGameModeV7` e cria a tarefa `PersonalGameModeV7` no logon do usuario com RunLevel Highest.
-2. `src/GameMode.ps1 -Action Monitor` usa um mutex por usuario e verifica processos pelo nome a cada `pollSeconds`.
-3. Ao detectar um jogo, salva `data/state.json` antes de alterar energia, Registro, servicos ou prioridade.
-4. Ativa apenas as regras especificas do perfil; programas encerrados nao sao reiniciados.
-5. Quando o processo termina, aguarda `exitGraceSeconds` e restaura os valores anteriores.
-6. Ao encontrar estado pendente apos encerramento inesperado, a proxima inicializacao tenta restaurar antes de aceitar nova sessao.
+Os perfis JSON só definem detecção do jogo e requisitos de compatibilidade; **não contêm listas de programas para fechar**.
 
-## Limites
+A instalação é por usuário e sem elevação automática; uma tarefa no logon inicia `src/GameMode.ps1`, que é copiado para `%LOCALAPPDATA%\GameMode`. Não altera nenhum serviço do Windows.
 
-- So um perfil ativo por vez.
-- Sem alteracao de BIOS, BCD, seguranca, clocks ou drivers.
-- Processos protegidos, allowlist de apps e allowlist de servicos ficam no motor, nao no JSON.
-- Dados de estado e logs ficam somente no PC local.
-- Desligamento abrupto exige nova execucao para restaurar.
-- O monitor nao mede FPS; use benchmarks externos em modo separado.
+## Fluxo de estados
 
-## Arquivos
+`IDLE → DETECTED → SNAPSHOT_SAVED → OPTIMIZED → EXIT_WAIT → RESTORED → IDLE`
 
-- `config.json`: intervalo de verificacao e politica de energia.
-- `profiles/*.json`: regra de cada jogo.
-- `src/GameMode.ps1`: deteccao, snapshot, aplicacao, restauracao.
-- `scripts/*.ps1`: instalacao, inicio, recuperacao e desinstalacao.
-- `data/`: estado e logs locais ignorados pelo Git.
+Uma queda inesperada do monitor pode deixar mudanças temporárias até a próxima execução. O estado persistido é recuperado antes de aceitar um novo jogo.
+
+## Limitações da primeira versão
+
+- O inventário pode ter dados indisponíveis para processos protegidos pelo Windows.
+- A classificação é apenas informativa; não faz atribuição confiável de que um programa pode ser fechado sem perder dados.
+- Perfis identificam processos pelo nome; identidade completa do executável será adicionada antes de políticas avançadas.
+- O scanner não mede FPS. Testes A/B com PresentMon serão separados da otimização.

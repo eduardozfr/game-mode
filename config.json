@@ -1,5 +1,13 @@
 {
-  "pollSeconds": 4,
-  "exitGraceSeconds": 12,
-  "useHighPerformancePlan": true
+  "schemaVersion": 1,
+  "version": "0.1.0",
+  "pollIntervalSeconds": 5,
+  "exitGraceSeconds": 15,
+  "applyGameMode": true,
+  "disableBackgroundCapture": true,
+  "preferHighPerformancePlan": true,
+  "setAboveNormalPriority": true,
+  "scanProcessesOnGameStart": true,
+  "autoCloseProcesses": false,
+  "stopServices": false
 }
