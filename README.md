@@ -6,6 +6,14 @@ Otimizador pessoal e modular para Windows. Detecta um jogo em execução, examin
 
 > Este projeto está em desenvolvimento. A versão inicial **não encerra programas ou serviços automaticamente**, pois consumo de recursos, ausência de janela e ociosidade não provam que um processo pode ser interrompido sem danos. O scanner cria candidatos para análise. Não há promessa de ganho de FPS.
 
+## Fluxo de funcionamento
+
+O diagrama resume como o monitor detecta um jogo, registra o estado atual do Windows, faz uma análise contextual dos processos e aplica apenas ajustes reversíveis. Ao fechar o jogo, o programa tenta restaurar as configurações anteriores.
+
+![Fluxo de funcionamento do Game Mode 0.1.0](docs/images/fluxo-game-mode.svg)
+
+> **Importante:** na versão experimental 0.1.0, o scanner apenas **analisa** processos. Ele não encerra aplicativos, serviços ou subsistemas automaticamente.
+
 ## Jogos reconhecidos
 
 | Jogo | Processo monitorado |
@@ -17,12 +25,13 @@ Otimizador pessoal e modular para Windows. Detecta um jogo em execução, examin
 ## Instalação
 
 1. Feche os modos anteriores de otimização manual, se estiverem ativos.
-2. Baixe ou clone este repositório para uma pasta no Windows 11.
-3. Execute `INSTALAR.cmd` como **usuário normal** (não precisa ser administrador).
-4. Abra normalmente um dos jogos reconhecidos.
-5. Execute `STATUS.cmd` para conferir o perfil e o estado do monitor.
-6. Para parar o monitor e restaurar as alterações temporárias, use `RESTAURAR.cmd`.
-7. Para voltar a detectar jogos, use `REATIVAR.cmd`. Para remover a automação, `DESINSTALAR.cmd`.
+2. No GitHub, clique em **Code → Download ZIP** (ou use `git clone https://github.com/eduardozfr/game-mode.git`).
+3. **Extraia o ZIP** em qualquer pasta, por exemplo `Downloads\\game-mode`. Não execute os arquivos diretamente dentro do ZIP.
+4. Entre na pasta extraída e execute **`INSTALAR.cmd`** como usuário normal (não precisa ser administrador). O instalador copia os arquivos para `%LOCALAPPDATA%\\GameMode`; não é preciso colocar manualmente nada em `Program Files`.
+5. Abra normalmente um dos jogos reconhecidos.
+6. Execute `STATUS.cmd` para conferir o perfil e o estado do monitor.
+7. Para parar o monitor e restaurar as alterações temporárias, use `RESTAURAR.cmd`.
+8. Para voltar a detectar jogos, use `REATIVAR.cmd`. Para remover a automação, `DESINSTALAR.cmd`.
 
 Instalação por usuário em `%LOCALAPPDATA%\GameMode`; os relatórios são locais e não são enviados para a Internet.
 

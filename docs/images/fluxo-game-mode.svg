@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1220" viewBox="0 0 1280 1220" role="img" aria-labelledby="chartTitle chartDesc">
+<title id="chartTitle">Game Mode — Fluxo de funcionamento (0.1.0)</title>
+<desc id="chartDesc">Monitor do Windows detecta o jogo, salva estado, analisa processos sem encerrá-los, aplica ajustes reversíveis e restaura as configurações quando o jogo termina.</desc>
+<defs>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L8 4.5 L1 8" fill="none" stroke="#73879A" stroke-width="1.6"/></marker>
+  <marker id="arrow-green" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1 L8 4.5 L1 8" fill="none" stroke="#16A34A" stroke-width="1.6"/></marker>
+  <marker id="arrow-red" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1 L8 4.5 L1 8" fill="none" stroke="#DC4349" stroke-width="1.6"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="1220" fill="#FFFFFF"/>
+<rect x="24" y="20" width="1232" height="1154" rx="24" fill="#FBFDFF" stroke="#E2E8F0"/>
+<g font-family="Segoe UI, Arial, sans-serif">
+<text x="640" y="71" font-size="40" font-weight="750" fill="#142744" text-anchor="middle">Game Mode</text>
+<text x="640" y="106" font-size="22" font-weight="500" fill="#62768B" text-anchor="middle">Fluxo de funcionamento · 0.1.0</text>
+<text x="640" y="140" font-size="17" font-weight="400" fill="#64748B" text-anchor="middle">Monitor automático · scanner contextual · restauração reversível</text>
+<rect x="45" y="211" width="263" height="102" rx="16" fill="#F5F9FF" stroke="#3B82F6" stroke-width="2"/>
+<text x="176" y="245" font-size="19" font-weight="700" fill="#142744" text-anchor="middle">1. Inicialização</text>
+<text x="176" y="273" font-size="17" font-weight="500" fill="#465E77" text-anchor="middle">Logon do usuário</text>
+<text x="176" y="297" font-size="17" font-weight="500" fill="#465E77" text-anchor="middle">no Windows</text>
+<rect x="365" y="211" width="263" height="102" rx="16" fill="#F5F9FF" stroke="#3B82F6" stroke-width="2"/>
+<text x="496" y="245" font-size="19" font-weight="700" fill="#142744" text-anchor="middle">2. Monitor ativo</text>
+<text x="496" y="273" font-size="17" font-weight="500" fill="#465E77" text-anchor="middle">Observa processos</text>
+<text x="496" y="297" font-size="17" font-weight="500" fill="#465E77" text-anchor="middle">de jogos conhecidos</text>
+<path d="M308 262 H365" fill="none" stroke="#73879A" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M648 262 L773 181 L898 262 L773 343 Z" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2"/>
+<path d="M628 262 H648" fill="none" stroke="#73879A" stroke-width="3" marker-end="url(#arrow)"/>
+<text x="773" y="239" font-size="18" font-weight="700" fill="#142744" text-anchor="middle">Jogo reconhecido</text>
+<text x="773" y="266" font-size="18" font-weight="700" fill="#142744" text-anchor="middle">em execução?</text>
+<rect x="957" y="211" width="268" height="102" rx="16" fill="#F8FAFC" stroke="#9AAABC" stroke-width="2"/>
+<text x="1091" y="245" font-size="19" font-weight="700" fill="#142744" text-anchor="middle">Aguardar</text>
+<text x="1091" y="272" font-size="16" font-weight="500" fill="#465E77" text-anchor="middle">Continuar monitorando</text>
+<text x="1091" y="295" font-size="16" font-weight="500" fill="#465E77" text-anchor="middle">em segundo plano</text>
+<path d="M898 262 H951" fill="none" stroke="#DC4349" stroke-width="3" marker-end="url(#arrow-red)"/>
+<text x="925" y="249" font-size="16" font-weight="700" fill="#DC4349" text-anchor="middle">Não</text>
+<path d="M1091 211 V178 H496 V211" fill="none" stroke="#73879A" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M773 343 V383" fill="none" stroke="#16A34A" stroke-width="3" marker-end="url(#arrow-green)"/>
+<text x="801" y="367" font-size="17" font-weight="700" fill="#16A34A" text-anchor="start">Sim</text>
+<rect x="505" y="390" width="537" height="75" rx="16" fill="#F5F9FF" stroke="#3B82F6" stroke-width="2"/>
+<text x="773" y="420" font-size="19" font-weight="700" fill="#142744" text-anchor="middle">3. Carregar perfil do jogo</text>
+<text x="773" y="448" font-size="16" font-weight="500" fill="#465E77" text-anchor="middle">CS2 · Red Dead Redemption 2 · Flight Simulator 2024</text>
+<path d="M773 465 V489" fill="none" stroke="#73879A" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="505" y="497" width="537" height="78" rx="16" fill="#F5F9FF" stroke="#3B82F6" stroke-width="2"/>
+<text x="773" y="530" font-size="19" font-weight="700" fill="#142744" text-anchor="middle">4. Salvar o estado original</text>
+<text x="773" y="559" font-size="16" font-weight="500" fill="#465E77" text-anchor="middle">Energia, preferências e prioridades</text>
+<path d="M773 575 V603" fill="none" stroke="#73879A" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="505" y="611" width="537" height="80" rx="16" fill="#F5F9FF" stroke="#3B82F6" stroke-width="2"/>
+<text x="773" y="643" font-size="19" font-weight="700" fill="#142744" text-anchor="middle">5. Scanner contextual de processos</text>
+<text x="773" y="673" font-size="16" font-weight="500" fill="#465E77" text-anchor="middle">Analisa CPU, RAM, janelas e relações entre processos</text>
+<path d="M1042 652 H1072" fill="none" stroke="#DC971E" stroke-width="2.5" stroke-dasharray="7 6"/>
+<rect x="1074" y="597" width="159" height="116" rx="16" fill="#FFF8EA" stroke="#E7A83E" stroke-width="2"/>
+<text x="1153" y="625" font-size="15" font-weight="700" fill="#9A580D" text-anchor="middle">MODO SEGURO</text>
+<text x="1153" y="650" font-size="14" font-weight="500" fill="#784D23" text-anchor="middle">Nenhum app ou</text>
+<text x="1153" y="670" font-size="14" font-weight="500" fill="#784D23" text-anchor="middle">serviço é fechado</text>
+<text x="1153" y="690" font-size="14" font-weight="500" fill="#784D23" text-anchor="middle">automaticamente</text>
+<path d="M773 691 V719" fill="none" stroke="#73879A" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="450" y="728" width="646" height="95" rx="16" fill="#F5F9FF" stroke="#3B82F6" stroke-width="2"/>
+<text x="773" y="760" font-size="19" font-weight="700" fill="#142744" text-anchor="middle">6. Classificação para diagnóstico</text>
+<rect x="466" y="778" width="145" height="29" rx="15" fill="#E6F6EA"/>
+<text x="538.5" y="798" font-size="14" font-weight="600" fill="#176F3B" text-anchor="middle">protected</text>
+<rect x="616" y="778" width="161" height="29" rx="15" fill="#E7F1FF"/>
+<text x="696.5" y="798" font-size="14" font-weight="600" fill="#205CB5" text-anchor="middle">game-related</text>
+<rect x="782" y="778" width="141" height="29" rx="15" fill="#F0EBFF"/>
+<text x="852.5" y="798" font-size="14" font-weight="600" fill="#6042A0" text-anchor="middle">interactive</text>
+<rect x="928" y="778" width="154" height="29" rx="15" fill="#EDF1F5"/>
+<text x="1005" y="798" font-size="14" font-weight="600" fill="#475569" text-anchor="middle">review-only</text>
+<path d="M773 823 V849" fill="none" stroke="#73879A" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="475" y="857" width="598" height="125" rx="16" fill="#ECFDF3" stroke="#1E9E5B" stroke-width="2"/>
+<text x="773" y="892" font-size="20" font-weight="700" fill="#135B37" text-anchor="middle">7. Aplicar ajustes reversíveis</text>
+<text x="773" y="923" font-size="16" font-weight="500" fill="#224F3F" text-anchor="middle">Game Mode · captura em segundo plano</text>
+<text x="773" y="951" font-size="16" font-weight="500" fill="#224F3F" text-anchor="middle">Energia (se disponível) · prioridade AboveNormal</text>
+<path d="M773 982 V1004" fill="none" stroke="#73879A" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M773 1006 L886 1068 L773 1130 L660 1068 Z" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2"/>
+<text x="773" y="1058" font-size="17" font-weight="700" fill="#142744" text-anchor="middle">Jogo ainda</text>
+<text x="773" y="1083" font-size="17" font-weight="700" fill="#142744" text-anchor="middle">em execução?</text>
+<rect x="63" y="1022" width="407" height="90" rx="16" fill="#F5F9FF" stroke="#3B82F6" stroke-width="2"/>
+<text x="266" y="1056" font-size="19" font-weight="700" fill="#142744" text-anchor="middle">Manter otimizações</text>
+<text x="266" y="1086" font-size="17" font-weight="500" fill="#465E77" text-anchor="middle">e continuar monitorando</text>
+<path d="M660 1068 H478" fill="none" stroke="#16A34A" stroke-width="3" marker-end="url(#arrow-green)"/>
+<text x="572" y="1053" font-size="16" font-weight="700" fill="#16A34A" text-anchor="middle">Sim</text>
+<path d="M267 1112 V1144 H773 V1130" fill="none" stroke="#73879A" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="941" y="1022" width="296" height="90" rx="16" fill="#F5F9FF" stroke="#8094AD" stroke-width="2"/>
+<text x="1089" y="1056" font-size="19" font-weight="700" fill="#142744" text-anchor="middle">8. Restaurar estado</text>
+<text x="1089" y="1086" font-size="16" font-weight="500" fill="#465E77" text-anchor="middle">quando o jogo fechar</text>
+<path d="M886 1068 H932" fill="none" stroke="#DC4349" stroke-width="3" marker-end="url(#arrow-red)"/>
+<text x="912" y="1053" font-size="16" font-weight="700" fill="#DC4349" text-anchor="middle">Não</text>
+<path d="M1089 1112 V1151 H496 V313" fill="none" stroke="#73879A" stroke-width="2" marker-end="url(#arrow)"/>
+</g></svg>
