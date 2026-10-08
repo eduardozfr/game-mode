@@ -1,0 +1,11 @@
+# Dados particulares ficam fora do repositorio publico.
+data/
+*.log
+*.csv
+*.zip
+state.json
+*.signal
+*.tmp
+__pycache__/
+.pytest_cache/
+.DS_Store
