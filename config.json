@@ -1,0 +1,5 @@
+{
+  "pollSeconds": 4,
+  "exitGraceSeconds": 12,
+  "useHighPerformancePlan": true
+}

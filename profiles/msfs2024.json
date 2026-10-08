@@ -1,0 +1,28 @@
+{
+  "id": "msfs2024",
+  "displayName": "Microsoft Flight Simulator 2024",
+  "processName": "FlightSimulator2024",
+  "enabled": true,
+  "stopServices": [
+    "Spooler"
+  ],
+  "stopWSL": false,
+  "closeApps": [
+    {
+      "name": "cursor",
+      "mode": "graceful"
+    },
+    {
+      "name": "node",
+      "mode": "force"
+    },
+    {
+      "name": "spotify",
+      "mode": "force"
+    },
+    {
+      "name": "widgets",
+      "mode": "force"
+    }
+  ]
+}
