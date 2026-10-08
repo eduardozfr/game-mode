@@ -26,8 +26,8 @@ O diagrama resume como o monitor detecta um jogo, registra o estado atual do Win
 
 1. Feche os modos anteriores de otimização manual, se estiverem ativos.
 2. No GitHub, clique em **Code → Download ZIP** (ou use `git clone https://github.com/eduardozfr/game-mode.git`).
-3. **Extraia o ZIP** em qualquer pasta, por exemplo `Downloads\\game-mode`. Não execute os arquivos diretamente dentro do ZIP.
-4. Entre na pasta extraída e execute **`INSTALAR.cmd`** como usuário normal (não precisa ser administrador). O instalador copia os arquivos para `%LOCALAPPDATA%\\GameMode`; não é preciso colocar manualmente nada em `Program Files`.
+3. **Extraia o ZIP** em qualquer pasta, por exemplo `Downloads\game-mode`. Não execute os arquivos diretamente dentro do ZIP.
+4. Entre na pasta extraída e execute **`INSTALAR.cmd`** como usuário normal (não precisa ser administrador). O instalador copia os arquivos para `%LOCALAPPDATA%\GameMode`; não é preciso colocar manualmente nada em `Program Files`.
 5. Abra normalmente um dos jogos reconhecidos.
 6. Execute `STATUS.cmd` para conferir o perfil e o estado do monitor.
 7. Para parar o monitor e restaurar as alterações temporárias, use `RESTAURAR.cmd`.
